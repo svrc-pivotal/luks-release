@@ -1,13 +1,14 @@
 #!/bin/bash
 set -e
 
+# Store key in tmpfs temporarily (RAM only); eventually this should reach out to a vault
+cp /var/vcap/jobs/luks/lukskey /run/lukskey
+shred -zun 35 /var/vcap/jobs/luks/lukskey
+chmod 400 /run/lukskey
+
 echo "Installing cryptsetup / dm-crypt / LUKS"
 dpkg -E -i /var/vcap/packages/luks/*.deb
 
-# Store key in tmpfs temporarily (RAM only)
-touch /run/lukskey
-chmod 400 /run/lukskey
-echo '<%= p("luks.current_key") %>' > /run/lukskey
 finish() {
   rm /run/lukskey
 }
@@ -26,12 +27,13 @@ createNewVolume() {
     exit 1
   fi
   size=$(($size * 1024))
-  <% if_p("luks.size") %> 
+  <% if_p("luks.size") do |luksSize| %> 
   # Size Override from Bosh Deployment
-  convertToBytes <%= p("luks.size") %>
+  convertToBytes <%= luksSize %>
   size=$convertedBytes
   <% end %>  
   echo "Creating and Formatting new LUKS disk $encryptedDevice"
+  mkdir -p /var/vcap/store/encrypted
   fallocate -l ${size} /var/vcap/store/encrypted/data
   cryptsetup luksFormat -d /run/lukskey --batch-mode /var/vcap/store/encrypted/data  
   cryptsetup luksOpen -d /run/lukskey  /var/vcap/store/encrypted/data $encryptedDevice
@@ -81,17 +83,17 @@ shrink() {
 
 openExistingVolume() {
   echo "Opening existing LUKS disk $encryptedDevice"
-  cryptsetup luksOpen -d /run/lukskey /var/vcap/store/encrypted/data $encryptedDevice
-  <% if_p("luks.size") %> 
+  cryptsetup luksOpen -d /run/lukskey /var/vcap/store/encrypted/data $encryptedDevice || true
+  <% if_p("luks.size") do |luksSize| %> 
     # Size Override from Bosh Deployment
-    convertToBytes <%= p("luks.size") %>
+    convertToBytes <%= luksSize %>
     newSize=$convertedBytes
     oldSize=`ls -l /var/vcap/store/encrypted/data | awk -F " " '{ print $5 }' | head -1`
     echo "NEW" $newSize "OLD" $oldSize
     if [ "$newSize" -gt "$oldSize" ]; then
-       grow()
-    elif [ "$newSize" -lt "$oldSize"]; then
-       shrink()
+       grow
+    elif [ "$newSize" -lt "$oldSize" ]; then
+       shrink
     fi   
   <% end %>
 }
@@ -109,4 +111,7 @@ mkdir -p $encryptedPath
 echo "Mounting LUKS disk at $encryptedPath"
 mount /dev/mapper/$encryptedDevice $encryptedPath
 exit 0
+
+
+
 

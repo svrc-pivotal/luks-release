@@ -5,6 +5,7 @@ description: "The LUKS filesystem provides an encrypted loopback filesystem for 
 
 templates:
   pre-start.sh.erb: bin/pre-start
+  lukskey.erb: lukskey
 
 packages:
   - luks

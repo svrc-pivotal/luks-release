@@ -1,6 +1,6 @@
 set -e -x
 
-cp -v luks/cryptsetup-bin_1.6.1-1ubuntu1_amd64.deb ${BOSH_INSTALL_TARGET}/
-cp -v luks/libcryptsetup4_1.6.1-1ubuntu1_amd64.deb ${BOSH_INSTALL_TARGET}/
+cp -v cryptsetup-bin_1.6.1-1ubuntu1_amd64.deb ${BOSH_INSTALL_TARGET}/
+cp -v libcryptsetup4_1.6.1-1ubuntu1_amd64.deb ${BOSH_INSTALL_TARGET}/
 
 
