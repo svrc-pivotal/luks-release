@@ -1,0 +1,6 @@
+---
+name: luks
+
+files:
+  - luks/cryptsetup-bin_1.6.1-1ubuntu1_amd64.deb
+  - luks/libcryptsetup4_1.6.1-1ubuntu1_amd64.deb

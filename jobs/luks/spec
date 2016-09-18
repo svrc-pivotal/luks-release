@@ -1,0 +1,25 @@
+---
+name: luks
+
+description: "The LUKS filesystem provides an encrypted loopback filesystem for persistent storage"
+
+templates:
+  pre-start.sh.erb: bin/pre-start
+
+packages:
+  - luks
+
+properties:
+  luks.current_key:
+    description: Current key for encrypting/decrypting the volume.  Support for key rotation forthcoming
+
+  luks.size: 
+    description: Encrypted volume size, in bytes, or ending with K, M, or G for kilobytes, megabytes, or gigabytes, assumes volume size otherwise.
+
+  luks.encryptedDevice:
+    description: Name of the dev mapper device
+    default: encrypted
+
+  luks.encryptedPath:
+    description: Name of the mount path of the LUKS volume
+    default: /var/vcap/encrypted

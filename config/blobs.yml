@@ -1,0 +1,9 @@
+---
+cryptsetup-bin_1.6.1-1ubuntu1_amd64.deb:
+  object_id: 2f3a7fdb-caa2-4d18-be60-f02daaa224f6
+  sha: 9f3d3f38f23116fe4d863bd5c7d6280fe25a4e6e
+  size: 80440
+libcryptsetup4_1.6.1-1ubuntu1_amd64.deb:
+  object_id: 37b944c6-97a3-419f-a6ae-ac9e7d8e03e6
+  sha: a8e2f635fc0caee0d90d67b0f0a0bd931eb7c48d
+  size: 77020

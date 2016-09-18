@@ -1,0 +1,112 @@
+#!/bin/bash
+set -e
+
+echo "Installing cryptsetup / dm-crypt / LUKS"
+dpkg -E -i /var/vcap/packages/luks/*.deb
+
+# Store key in tmpfs temporarily (RAM only)
+touch /run/lukskey
+chmod 400 /run/lukskey
+echo '<%= p("luks.current_key") %>' > /run/lukskey
+finish() {
+  rm /run/lukskey
+}
+trap finish EXIT
+
+createNewVolume() {
+  # Set encrypted size to available space 
+  avail=`df | grep /var/vcap/store | awk -F " " '{ print $4 }' | head -1`
+  if [ -z "$avail" ]; then
+    echo "No persistent store found"
+    exit 1
+  fi
+  size=$(($avail - 2048))
+  if [ "$size" -le 2048 ]; then
+    echo "Persistent store available space too small, 4 MB minimum"
+    exit 1
+  fi
+  size=$(($size * 1024))
+  <% if_p("luks.size") %> 
+  # Size Override from Bosh Deployment
+  convertToBytes <%= p("luks.size") %>
+  size=$convertedBytes
+  <% end %>  
+  echo "Creating and Formatting new LUKS disk $encryptedDevice"
+  fallocate -l ${size} /var/vcap/store/encrypted/data
+  cryptsetup luksFormat -d /run/lukskey --batch-mode /var/vcap/store/encrypted/data  
+  cryptsetup luksOpen -d /run/lukskey  /var/vcap/store/encrypted/data $encryptedDevice
+  mkfs.ext4 /dev/mapper/$encryptedDevice 
+}
+
+convertToBytes() {
+  convertedBytes=`echo $1 | awk '{print toupper($0)}'`
+  if [[ "$convertedBytes" =~ ^[[:digit:]]+$ ]]; then
+    return 0
+  elif [[ "$convertedBytes" =~ ^([[:digit:]]+)([K|G|M])$ ]]; then
+    case ${BASH_REMATCH[2]} in
+      K)
+        convertedBytes=$(( ${BASH_REMATCH[1]} * 1024 ))
+        ;;
+      M)
+        convertedBytes=$(( ${BASH_REMATCH[1]} * 1024 * 1024 ))
+        ;;
+      G)
+        convertedBytes=$(( ${BASH_REMATCH[1]} * 1024 * 1024 * 1024 ))
+        ;;
+     esac
+  else
+    echo "Invalid LUKS volume size description $1, must be bytes, or ending with \"K\", \"M\", or \"G\" for kilobytes, megabytes, or gigabytes."
+    return 1
+  fi
+}
+
+grow() {
+ echo "resizing!" 
+ e2fsck -f /dev/mapper/$encryptedDevice
+ fallocate -l $convertedBytes /var/vcap/store/encrypted/data
+ losetup -c `losetup -j /var/vcap/store/encrypted/data | awk -F ':' '{print $1}'`
+ cryptsetup resize $encryptedDevice
+ resize2fs -p /dev/mapper/$encryptedDevice
+}
+
+shrink() {
+ echo "shrinking!" 
+ e2fsck -f /dev/mapper/$encryptedDevice
+ # FS size is size minus 2 MB for LUKS header
+ resize2fs -p /dev/mapper/$encryptedDevice $(( ( $convertedBytes - 2097152 ) / 1024 ))K
+ truncate -s $convertedBytes /var/vcap/store/encrypted/data
+ losetup -c `losetup -j /var/vcap/store/encrypted/data | awk -F ':' '{print $1}'`
+ cryptsetup resize $encryptedDevice 
+}
+
+openExistingVolume() {
+  echo "Opening existing LUKS disk $encryptedDevice"
+  cryptsetup luksOpen -d /run/lukskey /var/vcap/store/encrypted/data $encryptedDevice
+  <% if_p("luks.size") %> 
+    # Size Override from Bosh Deployment
+    convertToBytes <%= p("luks.size") %>
+    newSize=$convertedBytes
+    oldSize=`ls -l /var/vcap/store/encrypted/data | awk -F " " '{ print $5 }' | head -1`
+    echo "NEW" $newSize "OLD" $oldSize
+    if [ "$newSize" -gt "$oldSize" ]; then
+       grow()
+    elif [ "$newSize" -lt "$oldSize"]; then
+       shrink()
+    fi   
+  <% end %>
+}
+
+encryptedDevice=<%= p("luks.encryptedDevice")%>
+encryptedPath=<%= p("luks.encryptedPath")%>
+mkdir -p $encryptedPath
+
+if [ ! -e /var/vcap/store/encrypted/data ]; then
+  createNewVolume   
+else
+  openExistingVolume
+fi
+mkdir -p $encryptedPath
+echo "Mounting LUKS disk at $encryptedPath"
+mount /dev/mapper/$encryptedDevice $encryptedPath
+exit 0
+
