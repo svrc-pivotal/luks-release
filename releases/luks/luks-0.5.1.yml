@@ -1,0 +1,20 @@
+---
+packages:
+- name: luks
+  version: 1d65ace64c94914f365cb840a16a2277e50a484d
+  fingerprint: 1d65ace64c94914f365cb840a16a2277e50a484d
+  sha1: 755dc4b586eb7dfd23514a50bd80abbc6fc9fc69
+  dependencies: []
+jobs:
+- name: luks
+  version: c2d8b3e6e59d66bbd0de906b813e45045dc4368b
+  fingerprint: c2d8b3e6e59d66bbd0de906b813e45045dc4368b
+  sha1: 85001bb6d363e2af5f36b1e9a6dc68ef84d0e445
+license:
+  version: 2c76e5e5ae8935985d6924d2f235eb3c7989b798
+  fingerprint: 2c76e5e5ae8935985d6924d2f235eb3c7989b798
+  sha1: e23811419324474ff8c27807c1a9211528c738ee
+commit_hash: 9b19d123
+uncommitted_changes: false
+name: luks
+version: 0.5.1
