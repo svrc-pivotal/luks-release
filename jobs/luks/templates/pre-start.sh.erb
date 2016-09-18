@@ -15,23 +15,23 @@ finish() {
 trap finish EXIT
 
 createNewVolume() {
-  # Set encrypted size to available space 
+  # Set encrypted size to available space as default
   avail=`df | grep /var/vcap/store | awk -F " " '{ print $4 }' | head -1`
   if [ -z "$avail" ]; then
     echo "No persistent store found"
     exit 1
   fi
   size=$(($avail - 2048))
-  if [ "$size" -le 2048 ]; then
-    echo "Persistent store available space too small, 4 MB minimum"
-    exit 1
-  fi
   size=$(($size * 1024))
   <% if_p("luks.size") do |luksSize| %> 
   # Size Override from Bosh Deployment
   convertToBytes <%= luksSize %>
   size=$convertedBytes
   <% end %>  
+  if [ "$size" -le 2048 ]; then
+    echo "Persistent store available space too small, 4 MB minimum"
+    exit 1
+  fi
   echo "Creating and Formatting new LUKS disk $encryptedDevice"
   mkdir -p /var/vcap/store/encrypted
   fallocate -l ${size} /var/vcap/store/encrypted/data
@@ -63,7 +63,8 @@ convertToBytes() {
 }
 
 grow() {
- echo "resizing!" 
+ echo "growing!" 
+ umount $encryptedPath || true
  e2fsck -p -f /dev/mapper/$encryptedDevice
  fallocate -l $convertedBytes /var/vcap/store/encrypted/data
  losetup -c `losetup -j /var/vcap/store/encrypted/data | awk -F ':' '{print $1}'`
@@ -73,6 +74,7 @@ grow() {
 
 shrink() {
  echo "shrinking!" 
+ umount $encryptedPath || true
  e2fsck -p -f /dev/mapper/$encryptedDevice
  # FS size is size minus 2 MB for LUKS header
  resize2fs -p /dev/mapper/$encryptedDevice $(( ( $convertedBytes - 2097152 ) / 1024 ))K
