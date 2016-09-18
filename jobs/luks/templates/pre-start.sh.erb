@@ -64,7 +64,7 @@ convertToBytes() {
 
 grow() {
  echo "resizing!" 
- e2fsck -f /dev/mapper/$encryptedDevice
+ e2fsck -p -f /dev/mapper/$encryptedDevice
  fallocate -l $convertedBytes /var/vcap/store/encrypted/data
  losetup -c `losetup -j /var/vcap/store/encrypted/data | awk -F ':' '{print $1}'`
  cryptsetup resize $encryptedDevice
@@ -73,7 +73,7 @@ grow() {
 
 shrink() {
  echo "shrinking!" 
- e2fsck -f /dev/mapper/$encryptedDevice
+ e2fsck -p -f /dev/mapper/$encryptedDevice
  # FS size is size minus 2 MB for LUKS header
  resize2fs -p /dev/mapper/$encryptedDevice $(( ( $convertedBytes - 2097152 ) / 1024 ))K
  truncate -s $convertedBytes /var/vcap/store/encrypted/data
